@@ -89,10 +89,16 @@ import DetailDrawer from '../Utility/DetailDrawer.vue';
     });
   }
 
-  const clickedfeature = ref({id:0, properties: {}, geometry: { type: 'Point', coordinates: [0, 0] } });
+  const clickedfeature = ref({
+    id: null,
+    properties: {},
+    geometry: { type: 'Point', coordinates: [0, 0] }
+  });
 
   const detailRef = ref(null);
   const showDrawer = ref(false);
+  const hasValidFeature = ref(false);
+  let mouseMoveHandler = null;
 
   // Conditionally apply filter based on string year
   const layerDefinition = computed(() => {
@@ -128,25 +134,54 @@ const popupCoords = ref(null);
 const popupProps = ref(null);
 
 
-  function showDetails() {
-    // modalRef.value?.openDialog();
-    // modalHidden.value = false;
-    showDrawer.value = true;
-  }
 
 
   onMounted(() => {
-    props.map.on('click', props.layerId, handleClick); // Attach click listener to the layer
+    if (!props.map) return;
+    
+    // Wait for layer to be added, then attach click handler and cursor styling
+    const attachHandler = () => {
+      if (props.map.getLayer(props.layerId)) {
+        props.map.on('click', props.layerId, handleClick);
+        
+        // Add pointer cursor on hover over this layer
+        mouseMoveHandler = (e) => {
+          const features = props.map.queryRenderedFeatures(e.point, {
+            layers: [props.layerId]
+          });
+          if (features.length > 0) {
+            // Set pointer cursor on both container and canvas to override grab cursor
+            const container = props.map.getCanvasContainer();
+            const canvas = props.map.getCanvas();
+            container.style.cursor = 'pointer';
+            if (canvas) {
+              canvas.style.cursor = 'pointer';
+            }
+          }
+        };
+        
+        // Attach mousemove handler
+        props.map.on('mousemove', mouseMoveHandler);
+      } else {
+        setTimeout(attachHandler, 100);
+      }
+    };
+    attachHandler();
   })
 
   onUnmounted(() => {
-    props.map.off('click', props.layerId, handleClick); // Clean up click listener
+    if (props.map) {
+      props.map.off('click', props.layerId, handleClick);
+      if (mouseMoveHandler) {
+        props.map.off('mousemove', mouseMoveHandler);
+      }
+    }
   })
 
   function validateJsonData(json) {
     if (!json || !json.data || !json.data.features || !Array.isArray(json.data.features)) {
       console.warn('Invalid GeoJSON data, expected an object with a features array.');
-      return { type:'geojson', data: { id: data.id, type: 'FeatureCollection', features: [] } };
+      return { type:'geojson', data: { id: json.data?.id || 'unknown', type: 'FeatureCollection', features: [] } };
     }
     if (!json.data.id || typeof json.data.id !== 'string') {
       console.error('GeoJSON data is missing a valid id');
@@ -155,45 +190,95 @@ const popupProps = ref(null);
     return json;
   }
 
+  function getCenterFromGeometry(geometry) {
+    if (!geometry || !geometry.coordinates) return null;
+    
+    // Handle Point geometry
+    if (geometry.type === 'Point') {
+      return geometry.coordinates; // [lng, lat]
+    }
+    
+    // Handle Polygon geometry - get first coordinate of first ring
+    if (geometry.type === 'Polygon' && geometry.coordinates && geometry.coordinates[0]) {
+      const firstRing = geometry.coordinates[0];
+      if (firstRing && firstRing.length > 0) {
+        return firstRing[0]; // First coordinate of first ring
+      }
+    }
+    
+    // Handle MultiPolygon geometry - get first coordinate of first polygon's first ring
+    if (geometry.type === 'MultiPolygon' && geometry.coordinates && geometry.coordinates[0]) {
+      const firstPolygon = geometry.coordinates[0];
+      if (firstPolygon && firstPolygon[0] && firstPolygon[0].length > 0) {
+        return firstPolygon[0][0]; // First coordinate of first ring of first polygon
+      }
+    }
+    
+    // Handle LineString geometry
+    if (geometry.type === 'LineString' && geometry.coordinates && geometry.coordinates.length > 0) {
+      const midIndex = Math.floor(geometry.coordinates.length / 2);
+      return geometry.coordinates[midIndex];
+    }
+    
+    // Handle MultiLineString geometry
+    if (geometry.type === 'MultiLineString' && geometry.coordinates && geometry.coordinates[0]) {
+      const firstLine = geometry.coordinates[0];
+      if (firstLine && firstLine.length > 0) {
+        const midIndex = Math.floor(firstLine.length / 2);
+        return firstLine[midIndex];
+      }
+    }
+    
+    console.warn('Unable to extract center from geometry type:', geometry.type);
+    return null;
+  }
+
   async function handleClick(e) {
-    if (!e || !e.features || e.features.length === 0) return;
-    if (e.features.length > 1) {
-      console.warn('Multiple features clicked, only the first will be processed.');
+    if (!e?.features?.length || !e.features[0].properties) return;
+    
+    const formattedFeature = props.featureFormatter ? props.featureFormatter(e.features[0]) : e.features[0];
+    
+    // Enhance building features
+    if (formattedFeature.geometry?.type === 'Polygon' || formattedFeature.geometry?.type === 'MultiPolygon') {
+      formattedFeature.properties = {
+        ...formattedFeature.properties,
+        type: 'building',
+        geometry_type: formattedFeature.geometry.type,
+        location_id: formattedFeature.properties?.location_id || formattedFeature.properties?.RecNum || formattedFeature.id
+      };
     }
-    if (!e.features[0].properties) {
-      console.warn('Clicked feature has no properties, skipping.');
-      return;
+    
+    // Close drawer if open
+    if (showDrawer.value) {
+      showDrawer.value = false;
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
-    if (!props.featureFormatter || typeof props.featureFormatter !== 'function') {
-      console.warn('featureFormatter is not a valid function, using default formatter.');
-      props.featureFormatter = (feature) => feature;
+    
+    // Update feature data
+    if (!hasValidFeature.value) {
+      clickedfeature.value = formattedFeature;
+      hasValidFeature.value = true;
+    } else {
+      Object.assign(clickedfeature.value, formattedFeature);
+      if (formattedFeature.properties) {
+        Object.assign(clickedfeature.value.properties, formattedFeature.properties);
+      }
     }
-    clickedfeature.value = props.featureFormatter(e.features[0]);
-    props.map.flyTo({
-      center: clickedfeature.value.geometry.coordinates,
-      zoom: 16,
-      speed: 1.2,
-      curve: 1.5,
-      easing: (t) => t
-    });
-    console.log(clickedfeature)
-    // var open = detailRef.value?.openDialog;
-    var open = showDetails;
-
-    // new MglPopup({
-    //   closeButton: true,
-    //   closeOnClick: false,
-    //   coordinates: clickedfeature.value.geometry.coordinates,
-    //   anchor: 'top',
-    //   offset: [0, -20],
-
-    // })
-    await utils.delayedAction(open, 1300); // Open dialog with a delay
+    
+    // Fly to building
+    const center = getCenterFromGeometry(clickedfeature.value.geometry);
+    if (center) {
+      props.map.flyTo({ center, zoom: 16, speed: 1.2 });
+      await new Promise(resolve => setTimeout(resolve, 600));
+    }
+    
+    showDrawer.value = true;
   }
 
   function openPopup()
   {
-    popupCoords.value = clickedfeature.value.geometry.coordinates;
+    const center = getCenterFromGeometry(clickedfeature.value.geometry);
+    popupCoords.value = center || clickedfeature.value.geometry.coordinates;
   }
 </script>
 
@@ -214,10 +299,12 @@ const popupProps = ref(null);
   </MglPopup> -->
   <!-- <slot name="modal" :feature="clickedfeature" />
   <slot /> -->
+  <!-- Always render drawer with stable key to prevent DOM patching issues -->
   <DetailDrawer
-    v-if="clickedfeature"
+    v-if="hasValidFeature"
     :item="clickedfeature"
-    v-model="showDrawer"/>
+    v-model="showDrawer"
+    :key="'building-drawer-singleton'"/>
   <!-- <FeatureModal
     v-if="clickedfeature"
     :feature="clickedfeature"

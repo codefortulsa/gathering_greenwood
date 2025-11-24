@@ -381,15 +381,21 @@
 
   async function getBuildings() {
     try {
+      console.log('🏗️ Loading buildings from:', `${import.meta.env.BASE_URL}tulsa-building-footprints.geojson`);
       const response = await fetch(`${import.meta.env.BASE_URL}tulsa-building-footprints.geojson`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
+      console.log('✅ Buildings loaded:', data.features?.length || 0, 'features');
       building1920GeoJSON.value = {
         type: 'geojson',
         data: data
       };
       building1920GeoJSON.value.data.id = '1920-building-source';
+      console.log('✅ Building GeoJSON configured with source ID:', building1920GeoJSON.value.data.id);
     } catch (error) {
-      console.error('Error loading buildings data:', error);
+      console.error('❌ Error loading buildings data:', error);
     }
   };
 

@@ -1,5 +1,7 @@
 <script setup>
 import { onMounted, onBeforeMount, ref, computed, watch } from 'vue';
+
+const isDrawerClosing = ref(false);
 import Drawer from './Drawer.vue'
 import BuildingForm from '@Forms/BuildingForm.vue';
 import PersonForm from '@Forms/PersonForm.vue';
@@ -160,10 +162,14 @@ const processedItem = computed(() => {
     if (props.item.type === 'Feature') {
       if (itemType === 'buildings') {
         // For building features, merge geometry data with properties
-        return {
+        const processed = {
           ...props.item.properties,
           geometry: props.item.geometry,
           coordinates: props.item.geometry?.coordinates,
+          geometry_type: props.item.geometry?.type,
+          // Provide default address if missing (use empty string instead of null to avoid template errors)
+          address: props.item.properties?.address || props.item.properties?.addresses?.[0]?.address || '',
+          name: props.item.properties?.name || props.item.properties?.title || `Building #${props.item.properties?.RecNum || props.item.properties?.location_id || 'Unknown'}`,
           // For POI data, flatten nested structures
           ...(props.item.properties?.people && { people: props.item.properties.people }),
           ...(props.item.properties?.stories && { stories: props.item.properties.stories }),
@@ -173,6 +179,7 @@ const processedItem = computed(() => {
           ...(props.item.properties?.documents && { documents: props.item.properties.documents }),
           ...(props.item.properties?.census_records && { census_records: props.item.properties.census_records }),
         };
+        return processed;
       }
     }
 

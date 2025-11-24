@@ -43,7 +43,7 @@ const isOpen = computed({
 const drawerClasses = computed(() => [
   'drawer',
   `drawer--${props.position}`,
-  { 'drawer--open': isOpen.value }
+  { 'drawer--open': isOpen.value, 'drawer--closed': !isOpen.value }
 ])
 
 const drawerStyles = computed(() => {
@@ -76,27 +76,29 @@ watch(isOpen, (newValue) => {
   if (newValue) {
     document.body.style.overflow = 'hidden'
   } else {
-    document.body.style.overflow = ''
+    // Delay restoring scroll to allow transition to complete
+    setTimeout(() => {
+      document.body.style.overflow = ''
+    }, 350)
   }
 })
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition name="drawer-overlay">
-      <div
-        v-if="overlay && isOpen"
-        class="drawer-overlay"
-        @click="handleOverlayClick"
-      />
-    </Transition>
+  <Teleport to="body" :disabled="false">
+    <!-- Overlay with CSS transition only -->
+    <div
+      v-show="overlay && isOpen"
+      class="drawer-overlay"
+      @click="handleOverlayClick"
+    />
 
-    <Transition :name="`drawer-${position}`">
-      <div
-        v-if="isOpen"
-        :class="drawerClasses"
-        :style="drawerStyles"
-      >
+    <!-- Drawer without Vue Transition - using CSS transitions only -->
+    <div
+      v-show="isOpen"
+      :class="drawerClasses"
+      :style="drawerStyles"
+    >
         <div class="drawer__header">
           <div class="drawer__header-content" v-if="title || $slots.header">
             <slot name="header">
@@ -127,7 +129,6 @@ watch(isOpen, (newValue) => {
           <slot name="footer" />
         </div>
       </div>
-    </Transition>
   </Teleport>
 </template>
 
@@ -141,6 +142,13 @@ watch(isOpen, (newValue) => {
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.5);
   z-index: 9998;
+  transition: opacity 0.3s ease;
+  opacity: 0;
+}
+
+.drawer-overlay[style*="display: block"],
+.drawer-overlay:not([style*="display: none"]) {
+  opacity: 1;
 }
 
 /* Drawer Base Styles */
@@ -151,6 +159,14 @@ watch(isOpen, (newValue) => {
   z-index: 9999;
   display: flex;
   flex-direction: column;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.drawer--open {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* Position Variants */
@@ -158,24 +174,44 @@ watch(isOpen, (newValue) => {
   top: 0;
   left: 0;
   bottom: 0;
+  transform: translateX(-100%);
+}
+
+.drawer--left.drawer--open {
+  transform: translateX(0);
 }
 
 .drawer--right {
   top: 0;
   right: 0;
   bottom: 0;
+  transform: translateX(100%);
+}
+
+.drawer--right.drawer--open {
+  transform: translateX(0);
 }
 
 .drawer--top {
   top: 0;
   left: 0;
   right: 0;
+  transform: translateY(-100%);
+}
+
+.drawer--top.drawer--open {
+  transform: translateY(0);
 }
 
 .drawer--bottom {
   bottom: 0;
   left: 0;
   right: 0;
+  transform: translateY(100%);
+}
+
+.drawer--bottom.drawer--open {
+  transform: translateY(0);
 }
 
 /* Header */
@@ -228,59 +264,14 @@ watch(isOpen, (newValue) => {
   border-top: 1px solid #e5e7eb;
 }
 
-/* Overlay Transitions */
-.drawer-overlay-enter-active,
-.drawer-overlay-leave-active {
+/* Overlay with CSS transition */
+.drawer-overlay {
   transition: opacity 0.3s ease;
-}
-
-.drawer-overlay-enter-from,
-.drawer-overlay-leave-to {
   opacity: 0;
 }
 
-/* Left Drawer Transitions */
-.drawer-left-enter-active,
-.drawer-left-leave-active {
-  transition: transform 0.3s ease;
-}
-
-.drawer-left-enter-from,
-.drawer-left-leave-to {
-  transform: translateX(-100%);
-}
-
-/* Right Drawer Transitions */
-.drawer-right-enter-active,
-.drawer-right-leave-active {
-  transition: transform 0.3s ease;
-}
-
-.drawer-right-enter-from,
-.drawer-right-leave-to {
-  transform: translateX(100%);
-}
-
-/* Top Drawer Transitions */
-.drawer-top-enter-active,
-.drawer-top-leave-active {
-  transition: transform 0.3s ease;
-}
-
-.drawer-top-enter-from,
-.drawer-top-leave-to {
-  transform: translateY(-100%);
-}
-
-/* Bottom Drawer Transitions */
-.drawer-bottom-enter-active,
-.drawer-bottom-leave-active {
-  transition: transform 0.3s ease;
-}
-
-.drawer-bottom-enter-from,
-.drawer-bottom-leave-to {
-  transform: translateY(100%);
+.drawer-overlay:not([style*="display: none"]) {
+  opacity: 1;
 }
 
 /* Responsive adjustments */
