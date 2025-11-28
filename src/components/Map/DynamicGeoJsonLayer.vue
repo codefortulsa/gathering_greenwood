@@ -64,6 +64,8 @@ import DetailDrawer from '../Utility/DetailDrawer.vue';
 
   const mapboxgl = inject('mapboxgl');
 
+  const emit = defineEmits(['drawer-closed']);
+
   defineExpose({
     fitMapToMarkers,
   });
@@ -94,6 +96,11 @@ import DetailDrawer from '../Utility/DetailDrawer.vue';
   const detailRef = ref(null);
   const showDrawer = ref(false);
 
+  // Handle drawer close - emit event to parent to clear search and reset map
+  function handleDrawerClose() {
+    emit('drawer-closed');
+  }
+
   // Conditionally apply filter based on string year
   const layerDefinition = computed(() => {
     const includeSearch = props.layerId.includes("search");
@@ -114,13 +121,6 @@ import DetailDrawer from '../Utility/DetailDrawer.vue';
     }
 
     const filter = filterParts;
-
-    console.log(`🗺️ Layer ${props.layerId}:`, {
-      filterYear: props.filterYear,
-      isYearExempt,
-      hasYearFilter: hasYear && !isYearExempt,
-      filter: JSON.stringify(filter)
-    });
 
     return {
       id: props.layerId,
@@ -185,7 +185,6 @@ const popupProps = ref(null);
       curve: 1.5,
       easing: (t) => t
     });
-    console.log(clickedfeature)
     // var open = detailRef.value?.openDialog;
     var open = showDetails;
 
@@ -226,7 +225,8 @@ const popupProps = ref(null);
   <DetailDrawer
     v-if="clickedfeature"
     :item="clickedfeature"
-    v-model="showDrawer"/>
+    v-model="showDrawer"
+    @close="handleDrawerClose"/>
   <!-- <FeatureModal
     v-if="clickedfeature"
     :feature="clickedfeature"

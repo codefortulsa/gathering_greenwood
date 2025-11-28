@@ -57,13 +57,6 @@ onBeforeMount(() => {
 
 // Function to set the year
 function setYear(year, event) {
-  console.log('🎯 YearSelector.setYear called with:', {
-    year,
-    yearType: typeof year,
-    eventTargetValue: event.target?.value,
-    eventTargetId: event.target?.id
-  });
-
   // Remove the class from the previously clicked element
   if (clickedElement.value) {
     clickedElement.value.removeAttribute('checked');
@@ -82,7 +75,6 @@ function setYear(year, event) {
   document.querySelector(`label[for="${clickedElement.value.id}"]`).classList.add('selected');
 
   // Call the function passed from the parent to set the year
-  console.log('  ➡️  Calling onYearChange with:', year);
   props.onYearChange(year);
 }
 

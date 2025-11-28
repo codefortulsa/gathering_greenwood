@@ -164,12 +164,12 @@
   // Reset Functions
 
   // Reset handler for app state and map
-  function resetApp() {
+  async function resetApp() {
     // Reset app year to default
     updateYear('');
 
-    // Reset search results
-    clearResults();
+    // Clear search input and results
+    await clearSearch();
 
     // Reset map zoom and center to default values
     resetMap();
@@ -196,11 +196,9 @@
   async function clearResults() {
     searchTerm.value = '';
     showResults.value = false;
+    geoJson.value = emptyGeoJson; // Clear search results from map
     if (resultsPaneRef && resultsPaneRef.value) {
       resultsPaneRef.value.resetState();
-    }
-    if (yearSearchBarRef && yearSearchBarRef.value) {
-      yearSearchBarRef.value.clearSearch();
     }
 
     if (mbMap.value?.getLayer('search-layer')) {
@@ -211,8 +209,16 @@
         if (mglMapRef.value && mbMap.value) {
           mbMap.value.resize();
         }
-      }, 300);
+      }, 400); // Match transition duration
     });
+  }
+
+  async function clearSearch() {
+    // Clear everything including the search input
+    await clearResults();
+    if (yearSearchBarRef && yearSearchBarRef.value) {
+      yearSearchBarRef.value.clearSearch();
+    }
   }
 
   function resetMap() {
@@ -243,7 +249,6 @@
 
   function handleGeojson(newGeojson) {
     if (mglMapRef.value) {
-      console.log('handleGeojson: Setting geoJson with', newGeojson?.data?.features?.length || 0, 'features');
       geoJson.value = newGeojson;
       //mglMapRef.value.loadDynamicLayer(newGeojson);
     }
@@ -283,9 +288,7 @@
   }
 
   function updateYear(newYear) {
-    console.log('📆 App.updateYear called with:', newYear, '(type:', typeof newYear, ')');
     appYear.value = newYear;
-    console.log('  Set appYear.value to:', appYear.value);
     if (resultsPaneRef && resultsPaneRef.value) {
       resultsPaneRef.value.yearChanged(newYear);
     }
@@ -297,6 +300,22 @@
     await getBuildings();
     await getStreets();
     await getBurnedArea();
+
+    // Add click handler to close search results when clicking on map background
+    mbMap.value.on('click', (e) => {
+      if (!showResults.value) return;
+
+      // Check if we clicked on our interactive layers (POIs, search results)
+      const layersToCheck = ['poi-layer', 'search-layer'];
+      const features = mbMap.value.queryRenderedFeatures(e.point, {
+        layers: layersToCheck
+      });
+
+      // Only close search results if clicking on empty map (not on POI/search markers)
+      if (features.length === 0) {
+        handleDetailDrawerClose();
+      }
+    });
     //poiLayerRef.value.fitMapToMarkers();
     // census1920GeoJson.value = await fetchGeoJson(census1920Url)
     //   .then(response =>
@@ -461,8 +480,8 @@
     showLanding.value = false;
   }
 
-  function openLandingPage() {
-    clearResults();
+  async function openLandingPage() {
+    await clearSearch();
     showLanding.value = true;
   }
 
@@ -477,20 +496,29 @@
     }
   }
 
+  function resetMapView() {
+    if (!mbMap.value) return;
+    // Zoom to Greenwood district (tighter view)
+    mbMap.value.fitBounds([
+      [-95.980, 36.168],  // northeast - focused on Greenwood
+      [-95.994, 36.156]   // southwest
+    ], {
+      padding: 50,
+      duration: 1000 // smooth animation
+    });
+  }
+
+  async function handleDetailDrawerClose() {
+    // Clear search results and reset map when detail drawer closes
+    await clearResults();
+    resetMapView();
+  }
+
   function handleMissingFeature(item) {
     const label = item?.address || item?.name || 'this result';
     toast.dismiss('missing-feature');
     toast.warning(`No map location available for ${label}.`, { id: 'missing-feature' });
   }
-
-  // Debug: Watch geoJson changes
-  watch(geoJson, (newVal) => {
-    console.log('🔍 geoJson changed:', {
-      hasData: !!newVal?.data,
-      featureCount: newVal?.data?.features?.length || 0,
-      firstFeature: newVal?.data?.features?.[0] || null
-    });
-  }, { deep: true });
 
 </script>
 
@@ -510,7 +538,7 @@
   <!-- YearSelector Component to change year and perform searches -->
   <YearSearchBar
     ref="yearSearchBarRef"
-    @clear="clearResults"
+    @clear="clearSearch"
     :onSearch="handleSearch"
     :onYearChange="updateYear"
     :years="years"
@@ -530,7 +558,8 @@
       layerId="search-layer"
       :filterYear="appYear"
       :map="mbMap"
-      :featureFormatter="formatFeature">
+      :featureFormatter="formatFeature"
+      @drawer-closed="handleDetailDrawerClose">
     </DynamicGeoJsonLayer>
     <!-- Debug info for search layer -->
     <div v-if="false">
@@ -548,7 +577,8 @@
       :filterYear="appYear"
       :map="mbMap"
       :featureFormatter="formatFeature"
-      :searchTerm="searchTerm">
+      :searchTerm="searchTerm"
+      @drawer-closed="handleDetailDrawerClose">
     </DynamicGeoJsonLayer>
     <DynamicGeoJsonLayer
       v-if="building1920GeoJSON && building1920GeoJSON.data && building1920GeoJSON.data.features && building1920GeoJSON.data.features.length > 0"
@@ -613,20 +643,22 @@
       :year="appYear"
       @update:geojson="handleGeojson"
       @focus-feature="focusFeature"
-      @focus-feature-missing="handleMissingFeature">
+      @focus-feature-missing="handleMissingFeature"
+      @close-results="handleDetailDrawerClose">
     </ResultsPane>
   </transition>
 </template>
 
 <style scoped>
   .map-area {
-    width: 100vw;
+    width: 100vw !important;
     height: var(--map-height);
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background-color: var(--gcc-beige);
   }
 
   .map-area-shrunk {
-    width: var(--map-width);
+    width: var(--map-width) !important;
   }
 </style>
 

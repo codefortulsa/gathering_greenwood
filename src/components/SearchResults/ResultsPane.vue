@@ -41,7 +41,7 @@
       }).filter((key) => key !== null);
   });
 
-  const emit = defineEmits(['update:geojson', 'update:results', 'focus-feature', 'focus-feature-missing']);
+  const emit = defineEmits(['update:geojson', 'update:results', 'focus-feature', 'focus-feature-missing', 'close-results']);
   const backendHost = import.meta.env.VITE_BACKEND_HOST;
 
   const searchTerm = ref('');
@@ -94,19 +94,20 @@
     yearChanged
   });
 
+  function handleClose() {
+    emit('close-results');
+  }
+
   function yearChanged(newYear) {
-    console.log('📅 Year changed to:', newYear);
     if (!results.value.isEmpty()) {
       if (newYear !== '') {
         filteredJson.value = (JsonResponse.value.results).filterByYear(newYear);
         results.value = filteredJson.value;
         count.value = filteredJson.value.count.filter((count)=> count.year === newYear)[0];
-        console.log('  Filtered sidebar results for year', newYear, ':', results.value.buildings?.length || 0, 'buildings');
       } else {
         results.value = JsonResponse.value.results;
         count.value = JsonResponse.value.results.TotalCount();
       }
-      console.log('  GeoJSON still has:', geojson.value?.data?.features?.length || 0, 'features (unchanged by year filter)');
     }
   }
 
@@ -130,12 +131,6 @@
 
       resultsData.value = await resultsRes.json();
       geoData.value = await geoJsonRes.json();
-
-      console.log('📥 Search API responses:', {
-        buildings: resultsData.value.results?.buildings?.length || 0,
-        firstBuildingYear: resultsData.value.results?.buildings?.[0]?.year,
-        allBuildingYears: [...new Set((resultsData.value.results?.buildings || []).map(b => b.year))]
-      });
 
       ResultsJson.fromJson((response) => {
         if (response.status === Status.Success) {
@@ -175,11 +170,6 @@
       geojson.value = formatRawGeoJson(geoJsonResponse.value.results);
       lastSearch.value = searchTerm.value;
 
-      console.log('📤 ResultsPane emitting geojson:', {
-        featureCount: geojson.value?.data?.features?.length || 0,
-        geojson: geojson.value
-      });
-
       emit('update:geojson', geojson.value);
       emit('update:results', results.value);
     } catch (err) {
@@ -194,6 +184,9 @@
 
 <template>
   <div class="results-pane">
+    <button class="close-results" @click="handleClose" aria-label="Close search results" title="Close">
+      ✕
+    </button>
     <LastSearch v-if="!loading && results" :lastSearch="lastSearch" />
     <div v-if="loading" class="spinner-container">
       <div class="spinner"></div>
@@ -217,6 +210,36 @@
     color: #333;
     overflow-y: hidden;
     border-left: var(--gcc-dk-green) .2rem solid;
+    position: fixed;
+    top: 0;
+    right: 0;
+    z-index: 1000;
+  }
+
+  .close-results {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: none;
+    color: #333;
+    border: none;
+    width: 1.5rem;
+    height: 1.5rem;
+    font-size: 1.2rem;
+    font-weight: normal;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 0;
+    transition: opacity 0.2s ease;
+    opacity: 0.6;
+  }
+
+  .close-results:hover {
+    opacity: 1;
   }
 
   .spinner-container {

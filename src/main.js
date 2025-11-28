@@ -89,7 +89,12 @@ const toastOptions = {
 config.familyDefault = 'classic';
 config.styleDefault = 'regular';
 
-createApp(App)
+const app = createApp(App);
+
+// Disable Vue DevTools
+app.config.devtools = false;
+
+app
   .component('font-awesome-icon', FontAwesomeIcon)
   .use(Toast, toastOptions)
   .provide('mapboxgl', mapboxgl)

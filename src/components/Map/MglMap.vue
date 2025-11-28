@@ -204,6 +204,10 @@
     --gcc-border-radius: 0.9rem;
   }
 
+  .mapboxgl-map {
+    background-color: var(--gcc-beige);
+  }
+
   .mapboxgl-map canvas {
     height: var(--map-height, 100vh);
     width: var(--map-width, 60vw);

@@ -19,8 +19,6 @@
     }
   });
 
-  const datalistId = 'search-suggestions';
-
   function doSearch() {
     if (!input.value.trim()) return;
     searchValue.value = {
@@ -104,7 +102,6 @@
           @keyup.enter.native="doSearch"
           @onChange="handleInputChange"
           @search="handleSearchClear"
-          :list="datalistId"
           @click="handleClick"
           @focus="handleFocus"
           @blur="handleBlur"
@@ -112,11 +109,8 @@
           type="search"
           placeholder="Search..."
           required
-          autocomplete="on"
+          autocomplete="off"
         />
-        <datalist :id="datalistId">
-          <option v-for="suggestion in props.suggestions" :key="suggestion" :value="suggestion" />
-        </datalist>
         <ul
           v-if="showSuggestions && props.suggestions.length"
           class="suggestions"

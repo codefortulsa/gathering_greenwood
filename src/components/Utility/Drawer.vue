@@ -107,15 +107,9 @@ watch(isOpen, (newValue) => {
             class="drawer__close"
             @click="closeDrawer"
             aria-label="Close drawer"
+            title="Close"
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M18 6L6 18M6 6L18 18"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-              />
-            </svg>
+            ✕
           </button>
         </div>
 
@@ -182,10 +176,14 @@ watch(isOpen, (newValue) => {
 .drawer__header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding: 1rem 1.5rem;
   min-height: 60px;
   border-bottom: 1px solid #e5e7eb;
+  background-color: white;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .drawer__header-content {
@@ -200,19 +198,28 @@ watch(isOpen, (newValue) => {
 }
 
 .drawer__close {
-  background: none;
+  background: var(--gcc-dk-green);
   border: none;
-  padding: 0.5rem;
+  padding: 0.75rem 1rem;
   cursor: pointer;
-  color: #6b7280;
-  border-radius: 0.375rem;
+  color: white;
+  border-radius: 0.5rem;
   transition: all 0.2s ease;
   margin-left: auto;
+  font-size: 1.5rem;
+  font-weight: bold;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
 }
 
 .drawer__close:hover {
-  background-color: #f3f4f6;
-  color: #374151;
+  background-color: var(--gcc-orange);
+  color: white;
+  transform: scale(1.1);
 }
 
 /* Content */

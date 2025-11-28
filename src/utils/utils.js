@@ -128,8 +128,6 @@ export function formatRawGeoJson(rawGeoJson, id='search-source', inject_year=nul
     return feature;
   });
 
-  console.log(`formatRawGeoJson: Processed ${rawGeoJson.features.length} features`);
-
   return {
     type: 'geojson',
     data: rawGeoJson
