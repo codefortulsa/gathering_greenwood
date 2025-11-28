@@ -6,6 +6,7 @@
   const input = ref('');
   const lastSearch = ref('');
   const showSuggestions = ref(false);
+  const userHasInteracted = ref(false);
 
   const props = defineProps({
     onSearch: {
@@ -37,13 +38,25 @@
   function clearSearch() {
       input.value = '';
       searchValue.value = {};
+      showSuggestions.value = false;
+      userHasInteracted.value = false;
   }
 
   function handleInputChange(event) {
-    setQuery(event.target.value);
+    userHasInteracted.value = true;
+    showSuggestions.value = true;
   }
 
   function handleFocus() {
+    // Only show suggestions if user has actually interacted with the input
+    if (userHasInteracted.value) {
+      showSuggestions.value = true;
+    }
+  }
+
+  function handleClick() {
+    // Mark that user has interacted and show suggestions
+    userHasInteracted.value = true;
     showSuggestions.value = true;
   }
 
@@ -81,8 +94,9 @@
           v-model="input"
           id="search-input"
           @keyup.enter.native="doSearch"
-          @onChange="handleInputChange"
+          @input="handleInputChange"
           :list="datalistId"
+          @click="handleClick"
           @focus="handleFocus"
           @blur="handleBlur"
           aria-description="search results will appear above"
